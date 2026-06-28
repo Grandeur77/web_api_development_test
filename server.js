@@ -5,6 +5,9 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable express.json() middleware
+app.use(express.json());
+
 // Load seed.json into memory at startup
 const seedPath = path.join(__dirname, 'seed.json');
 let data = { provinces: [], districts: [], stations: [], vehicles: [], pings: [] };
@@ -29,9 +32,9 @@ app.get('/provinces', (req, res) => {
   res.json(data.provinces);
 });
 
-// GET /provinces/:provinceId - Retrieve a specific province
-app.get('/provinces/:provinceId', (req, res) => {
-  const provinceId = parseInt(req.params.provinceId, 10);
+// GET /provinces/:provinceid - Retrieve a specific province by id
+app.get('/provinces/:provinceid', (req, res) => {
+  const provinceId = parseInt(req.params.provinceid, 10);
   const province = data.provinces.find(p => p.id === provinceId);
   if (!province) {
     return res.status(404).json({ error: 'Province not found' });
@@ -44,9 +47,9 @@ app.get('/districts', (req, res) => {
   res.json(data.districts);
 });
 
-// GET /districts/:districtId - Retrieve a specific district
-app.get('/districts/:districtId', (req, res) => {
-  const districtId = parseInt(req.params.districtId, 10);
+// GET /districts/:districtid - Retrieve a specific district by id
+app.get('/districts/:districtid', (req, res) => {
+  const districtId = parseInt(req.params.districtid, 10);
   const district = data.districts.find(d => d.id === districtId);
   if (!district) {
     return res.status(404).json({ error: 'District not found' });
@@ -59,9 +62,9 @@ app.get('/stations', (req, res) => {
   res.json(data.stations);
 });
 
-// GET /stations/:stationId - Retrieve a specific station
-app.get('/stations/:stationId', (req, res) => {
-  const stationId = parseInt(req.params.stationId, 10);
+// GET /stations/:stationid - Retrieve a specific station by id
+app.get('/stations/:stationid', (req, res) => {
+  const stationId = parseInt(req.params.stationid, 10);
   const station = data.stations.find(s => s.id === stationId);
   if (!station) {
     return res.status(404).json({ error: 'Station not found' });
@@ -74,9 +77,9 @@ app.get('/vehicles', (req, res) => {
   res.json(data.vehicles);
 });
 
-// GET /vehicles/:vehicleId - Retrieve a specific vehicle
-app.get('/vehicles/:vehicleId', (req, res) => {
-  const vehicleId = parseInt(req.params.vehicleId, 10);
+// GET /vehicles/:vehicleid - Retrieve a specific vehicle by id
+app.get('/vehicles/:vehicleid', (req, res) => {
+  const vehicleId = parseInt(req.params.vehicleid, 10);
   const vehicle = data.vehicles.find(v => v.id === vehicleId);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
@@ -84,9 +87,9 @@ app.get('/vehicles/:vehicleId', (req, res) => {
   res.json(vehicle);
 });
 
-// GET /vehicles/:vehicleId/pings - Retrieve pings for a specific vehicle
-app.get('/vehicles/:vehicleId/pings', (req, res) => {
-  const vehicleId = parseInt(req.params.vehicleId, 10);
+// GET /vehicles/:vehicleid/pings - Retrieve pings for a specific vehicle by id
+app.get('/vehicles/:vehicleid/pings', (req, res) => {
+  const vehicleId = parseInt(req.params.vehicleid, 10);
   const vehicle = data.vehicles.find(v => v.id === vehicleId);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
