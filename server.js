@@ -29,72 +29,117 @@ app.get('/', (req, res) => {
 
 // GET /provinces - Retrieve all provinces
 app.get('/provinces', (req, res) => {
-  res.json(data.provinces);
+  const mapped = data.provinces.map(p => ({
+    province_id: p.id,
+    name: p.name
+  }));
+  res.json(mapped);
 });
 
-// GET /provinces/:provinceid - Retrieve a specific province by id
-app.get('/provinces/:provinceid', (req, res) => {
-  const provinceId = parseInt(req.params.provinceid, 10);
-  const province = data.provinces.find(p => p.id === provinceId);
+// GET /provinces/:id - Retrieve a specific province by id
+app.get('/provinces/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const province = data.provinces.find(p => p.id === id);
   if (!province) {
     return res.status(404).json({ error: 'Province not found' });
   }
-  res.json(province);
+  res.json({
+    province_id: province.id,
+    name: province.name
+  });
 });
 
 // GET /districts - Retrieve all districts
 app.get('/districts', (req, res) => {
-  res.json(data.districts);
+  const mapped = data.districts.map(d => ({
+    district_id: d.id,
+    name: d.name,
+    province_id: d.province_id
+  }));
+  res.json(mapped);
 });
 
-// GET /districts/:districtid - Retrieve a specific district by id
-app.get('/districts/:districtid', (req, res) => {
-  const districtId = parseInt(req.params.districtid, 10);
-  const district = data.districts.find(d => d.id === districtId);
+// GET /districts/:id - Retrieve a specific district by id
+app.get('/districts/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const district = data.districts.find(d => d.id === id);
   if (!district) {
     return res.status(404).json({ error: 'District not found' });
   }
-  res.json(district);
+  res.json({
+    district_id: district.id,
+    name: district.name,
+    province_id: district.province_id
+  });
 });
 
 // GET /stations - Retrieve all stations
 app.get('/stations', (req, res) => {
-  res.json(data.stations);
+  const mapped = data.stations.map(s => ({
+    station_id: s.id,
+    name: s.name,
+    district_id: s.district_id
+  }));
+  res.json(mapped);
 });
 
-// GET /stations/:stationid - Retrieve a specific station by id
-app.get('/stations/:stationid', (req, res) => {
-  const stationId = parseInt(req.params.stationid, 10);
-  const station = data.stations.find(s => s.id === stationId);
+// GET /stations/:id - Retrieve a specific station by id
+app.get('/stations/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const station = data.stations.find(s => s.id === id);
   if (!station) {
     return res.status(404).json({ error: 'Station not found' });
   }
-  res.json(station);
+  res.json({
+    station_id: station.id,
+    name: station.name,
+    district_id: station.district_id
+  });
 });
 
 // GET /vehicles - Retrieve all vehicles
 app.get('/vehicles', (req, res) => {
-  res.json(data.vehicles);
+  const mapped = data.vehicles.map(v => ({
+    vehicle_id: v.id,
+    reg_number: v.registration_number,
+    device_id: v.device_id,
+    station_id: v.station_id
+  }));
+  res.json(mapped);
 });
 
-// GET /vehicles/:vehicleid - Retrieve a specific vehicle by id
-app.get('/vehicles/:vehicleid', (req, res) => {
-  const vehicleId = parseInt(req.params.vehicleid, 10);
-  const vehicle = data.vehicles.find(v => v.id === vehicleId);
+// GET /vehicles/:id - Retrieve a specific vehicle by id
+app.get('/vehicles/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const vehicle = data.vehicles.find(v => v.id === id);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
-  res.json(vehicle);
+  res.json({
+    vehicle_id: vehicle.id,
+    reg_number: vehicle.registration_number,
+    device_id: vehicle.device_id,
+    station_id: vehicle.station_id
+  });
 });
 
-// GET /vehicles/:vehicleid/pings - Retrieve pings for a specific vehicle by id
-app.get('/vehicles/:vehicleid/pings', (req, res) => {
-  const vehicleId = parseInt(req.params.vehicleid, 10);
-  const vehicle = data.vehicles.find(v => v.id === vehicleId);
+// GET /vehicles/:id/pings - Retrieve pings for a specific vehicle by id
+app.get('/vehicles/:id/pings', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const vehicle = data.vehicles.find(v => v.id === id);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
-  const vehiclePings = data.pings.filter(p => p.vehicle_id === vehicleId);
+  const vehiclePings = data.pings
+    .filter(p => p.vehicle_id === id)
+    .map(p => ({
+      ping_id: p.id,
+      vehicle_id: p.vehicle_id,
+      timestamp: p.timestamp,
+      lat: p.latitude,
+      lng: p.longitude,
+      speed: p.speed !== undefined ? p.speed : 0
+    }));
   res.json(vehiclePings);
 });
 
