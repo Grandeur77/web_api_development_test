@@ -108,18 +108,36 @@ app.get('/vehicles', (req, res) => {
   res.json(mapped);
 });
 
-// GET /vehicles/:id - Retrieve a specific vehicle by id
+// GET /vehicles/:id - Retrieve a specific vehicle by id (with last_ping composite)
 app.get('/vehicles/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
   const vehicle = data.vehicles.find(v => v.id === id);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
+
+  // Find last_ping: filter pings where vehicle_id matches, sort by timestamp descending, take [0]
+  const vehiclePings = data.pings.filter(p => p.vehicle_id === id);
+  let lastPing = null;
+  if (vehiclePings.length > 0) {
+    vehiclePings.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const lp = vehiclePings[0];
+    lastPing = {
+      ping_id: lp.id,
+      vehicle_id: lp.vehicle_id,
+      timestamp: lp.timestamp,
+      lat: lp.latitude,
+      lng: lp.longitude,
+      speed: lp.speed !== undefined ? lp.speed : 0
+    };
+  }
+
   res.json({
     vehicle_id: vehicle.id,
     reg_number: vehicle.registration_number,
     device_id: vehicle.device_id,
-    station_id: vehicle.station_id
+    station_id: vehicle.station_id,
+    last_ping: lastPing
   });
 });
 
