@@ -161,6 +161,32 @@ app.get('/vehicles/:id/pings', (req, res) => {
   res.json(vehiclePings);
 });
 
+// GET /vehicles/:id/last-position - Retrieve most recent position only (no vehicle metadata)
+app.get('/vehicles/:id/last-position', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const vehicle = data.vehicles.find(v => v.id === id);
+  if (!vehicle) {
+    return res.status(404).json({ error: 'Vehicle not found' });
+  }
+
+  const vehiclePings = data.pings.filter(p => p.vehicle_id === id);
+  if (vehiclePings.length === 0) {
+    return res.status(404).json({ error: 'No pings found for this vehicle' });
+  }
+
+  // Sort by timestamp descending
+  vehiclePings.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const lp = vehiclePings[0];
+
+  res.json({
+    vehicle_id: lp.vehicle_id,
+    timestamp: lp.timestamp,
+    lat: lp.latitude,
+    lng: lp.longitude,
+    speed: lp.speed !== undefined ? lp.speed : 0
+  });
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
