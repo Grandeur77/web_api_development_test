@@ -1,19 +1,11 @@
 {
   "name": "web-api-development-test",
   "version": "1.0.0",
-  "description": "A modern Hello World UI served via Node.js on localhost",
+  "description": "Minimal Express.js app",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": [
-    "nodejs",
-    "localhost",
-    "hello-world",
-    "ui"
-  ],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "express": "^5.2.1"
   }
