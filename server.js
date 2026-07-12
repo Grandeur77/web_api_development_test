@@ -274,18 +274,18 @@ app.post('/vehicles/:vehicleId/pings', (req, res) => {
   }
   const numericId = vehicle.id;
 
-  // 4. expected key is key_vXX based on the formatted vehicle id
-  const expectedKey = `key_v${String(numericId).padStart(2, '0')}`;
+  // 4. expected key is dev-[vehicleId]-secret based on the request parameter
+  const expectedKey = `dev-${req.params.vehicleId}-secret`;
   if (apiKey !== expectedKey) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // 5. 400 if body missing latitude, longitude, or speed
-  const { latitude, longitude, speed } = req.body;
-  if (latitude === undefined || latitude === null ||
-      longitude === undefined || longitude === null ||
+  // 5. 400 if body missing lat, lng, or speed
+  const { lat, lng, speed } = req.body;
+  if (lat === undefined || lat === null ||
+      lng === undefined || lng === null ||
       speed === undefined || speed === null) {
-    return res.status(400).json({ error: 'Missing latitude, longitude, or speed' });
+    return res.status(400).json({ error: 'Missing lat, lng, or speed' });
   }
 
   // 6. Server sets timestamp: new Date().toISOString()
@@ -293,27 +293,36 @@ app.post('/vehicles/:vehicleId/pings', (req, res) => {
   const newPing = {
     id: newPingId,
     vehicle_id: numericId,
-    latitude,
-    longitude,
-    speed,
+    latitude: lat,
+    longitude: lng,
+    speed: speed,
     timestamp: new Date().toISOString()
   };
 
   // 7. Push ping to array
   data.pings.push(newPing);
 
-  // 8. Set Location header: /vehicles/:vehicleId/pings/:pingId
-  res.set('Location', `/vehicles/${req.params.vehicleId}/pings/${newPing.id}`);
+  // 8. Set up response payload matching the required wire contrast shape
+  const responsePayload = {
+    ping_id: `PNG-${newPingId}`,
+    vehicle_id: req.params.vehicleId,
+    lat: lat,
+    lng: lng,
+    speed: speed
+  };
 
-  // 9. Set ETag and Last-Modified headers
+  // 9. Set Location header: /vehicles/:vehicleId/pings/PNG-:pingId
+  res.set('Location', `/vehicles/${req.params.vehicleId}/pings/PNG-${newPingId}`);
+
+  // 10. Set ETag and Last-Modified headers
   const lastModified = new Date(newPing.timestamp).toUTCString();
   res.set('Last-Modified', lastModified);
 
-  const etag = '"' + crypto.createHash('md5').update(JSON.stringify(newPing)).digest('hex') + '"';
+  const etag = '"' + crypto.createHash('md5').update(JSON.stringify(responsePayload)).digest('hex') + '"';
   res.set('ETag', etag);
 
-  // 10. Return 201 Created
-  return res.status(201).json(newPing);
+  // 11. Return 201 Created
+  return res.status(201).json(responsePayload);
 });
 
 if (require.main === module) {
