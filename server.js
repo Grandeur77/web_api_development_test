@@ -17,12 +17,15 @@ function findVehicle(idOrStr) {
   if (!idOrStr) return null;
   const normalized = idOrStr.trim().toLowerCase();
 
-  // Try matching registration_number exactly
-  const foundByReg = data.vehicles.find(v => v.registration_number.toLowerCase() === normalized);
+  // Try matching registration number exactly
+  const foundByReg = data.vehicles.find(v => {
+    const regNum = v.register_number || v.registration_number;
+    return regNum && regNum.toLowerCase() === normalized;
+  });
   if (foundByReg) return foundByReg;
 
   // Try matching device_id exactly
-  const foundByDevice = data.vehicles.find(v => v.device_id.toLowerCase() === normalized);
+  const foundByDevice = data.vehicles.find(v => v.device_id && v.device_id.toLowerCase() === normalized);
   if (foundByDevice) return foundByDevice;
 
   // Try matching formatted ID: v-XX
@@ -170,7 +173,7 @@ app.get('/stations/:id', (req, res) => {
 app.get('/vehicles', (req, res) => {
   const mapped = data.vehicles.map(v => ({
     vehicle_id: v.id,
-    reg_number: v.registration_number,
+    reg_number: v.register_number || v.registration_number,
     device_id: v.device_id,
     station_id: v.station_id
   }));
@@ -203,7 +206,7 @@ app.get('/vehicles/:vehicleId', (req, res) => {
 
   res.json({
     vehicle_id: vehicle.id,
-    reg_number: vehicle.registration_number,
+    reg_number: vehicle.register_number || vehicle.registration_number,
     device_id: vehicle.device_id,
     station_id: vehicle.station_id,
     last_ping: lastPing
