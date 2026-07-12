@@ -12,6 +12,39 @@ app.use(express.json());
 // Load seed.json into memory at startup
 const data = require('./seed.json');
 
+// Helper to find a vehicle by numeric ID, registration number, device ID, or formatted string (e.g. v-01)
+function findVehicle(idOrStr) {
+  if (!idOrStr) return null;
+  const normalized = idOrStr.trim().toLowerCase();
+
+  // Try matching registration_number exactly
+  const foundByReg = data.vehicles.find(v => v.registration_number.toLowerCase() === normalized);
+  if (foundByReg) return foundByReg;
+
+  // Try matching device_id exactly
+  const foundByDevice = data.vehicles.find(v => v.device_id.toLowerCase() === normalized);
+  if (foundByDevice) return foundByDevice;
+
+  // Try matching formatted ID: v-XX
+  if (normalized.startsWith('v-')) {
+    const parsedId = parseInt(normalized.substring(2), 10);
+    if (!isNaN(parsedId)) {
+      const found = data.vehicles.find(v => v.id === parsedId);
+      if (found) return found;
+    }
+  }
+
+  // Try matching numeric ID
+  const numericId = parseInt(idOrStr, 10);
+  if (!isNaN(numericId)) {
+    const found = data.vehicles.find(v => v.id === numericId);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+
 
 // Root route returning status and session
 app.get('/', (req, res) => {
@@ -107,11 +140,11 @@ app.get('/vehicles', (req, res) => {
 
 // GET /vehicles/:id - Retrieve a specific vehicle by id (with last_ping composite)
 app.get('/vehicles/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const vehicle = data.vehicles.find(v => v.id === id);
+  const vehicle = findVehicle(req.params.id);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
+  const id = vehicle.id;
 
   // Find last_ping: filter pings where vehicle_id matches, sort by timestamp descending, take [0]
   const vehiclePings = data.pings.filter(p => p.vehicle_id === id);
@@ -140,11 +173,11 @@ app.get('/vehicles/:id', (req, res) => {
 
 // GET /vehicles/:id/pings - Retrieve pings for a specific vehicle by id
 app.get('/vehicles/:id/pings', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const vehicle = data.vehicles.find(v => v.id === id);
+  const vehicle = findVehicle(req.params.id);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
+  const id = vehicle.id;
   const vehiclePings = data.pings
     .filter(p => p.vehicle_id === id)
     .map(p => ({
@@ -160,11 +193,11 @@ app.get('/vehicles/:id/pings', (req, res) => {
 
 // GET /vehicles/:id/last-position - Retrieve most recent position only (no vehicle metadata)
 app.get('/vehicles/:id/last-position', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const vehicle = data.vehicles.find(v => v.id === id);
+  const vehicle = findVehicle(req.params.id);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
+  const id = vehicle.id;
 
   const vehiclePings = data.pings.filter(p => p.vehicle_id === id);
   if (vehiclePings.length === 0) {
@@ -192,32 +225,15 @@ app.post('/vehicles/:vehicleId/pings', (req, res) => {
     return res.status(401).json({ error: 'API key is missing' });
   }
 
-  // 2. Parse vehicleId
-  const vehicleId = req.params.vehicleId;
-  let numericId = null;
-  if (vehicleId.startsWith('v-')) {
-    numericId = parseInt(vehicleId.substring(2), 10);
-  } else {
-    numericId = parseInt(vehicleId, 10);
-  }
-
-  // 3. 404 if vehicleId not in vehicles array
-  const vehicle = data.vehicles.find(v => v.id === numericId);
+  // 2. Parse and find vehicle
+  const vehicle = findVehicle(req.params.vehicleId);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
+  const numericId = vehicle.id;
 
-  // 4. Build deviceKeys = { "v-01": "key_v01", "v-02": "key_v02", ... }
-  // 403 if key does not match deviceKeys[vehicleId]
-  const deviceKeys = {};
-  data.vehicles.forEach(v => {
-    const formattedId = `v-${String(v.id).padStart(2, '0')}`;
-    const key = `key_v${String(v.id).padStart(2, '0')}`;
-    deviceKeys[formattedId] = key;
-    deviceKeys[String(v.id)] = key;
-  });
-
-  const expectedKey = deviceKeys[vehicleId];
+  // 4. expected key is key_vXX based on the formatted vehicle id
+  const expectedKey = `key_v${String(numericId).padStart(2, '0')}`;
   if (apiKey !== expectedKey) {
     return res.status(403).json({ error: 'Forbidden' });
   }
@@ -245,7 +261,7 @@ app.post('/vehicles/:vehicleId/pings', (req, res) => {
   data.pings.push(newPing);
 
   // 8. Set Location header: /vehicles/:vehicleId/pings/:pingId
-  res.set('Location', `/vehicles/${vehicleId}/pings/${newPing.id}`);
+  res.set('Location', `/vehicles/${req.params.vehicleId}/pings/${newPing.id}`);
 
   // 9. Set ETag and Last-Modified headers
   const lastModified = new Date(newPing.timestamp).toUTCString();
