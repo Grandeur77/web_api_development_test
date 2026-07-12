@@ -46,6 +46,48 @@ function findVehicle(idOrStr) {
 
 
 
+// Helper to find a province by numeric ID or name (case-insensitive)
+function findProvince(idOrName) {
+  if (!idOrName) return null;
+  const normalized = idOrName.trim().toLowerCase();
+  const foundByName = data.provinces.find(p => p.name.toLowerCase() === normalized);
+  if (foundByName) return foundByName;
+
+  const numericId = parseInt(idOrName, 10);
+  if (!isNaN(numericId)) {
+    return data.provinces.find(p => p.id === numericId);
+  }
+  return null;
+}
+
+// Helper to find a district by numeric ID or name (case-insensitive)
+function findDistrict(idOrName) {
+  if (!idOrName) return null;
+  const normalized = idOrName.trim().toLowerCase();
+  const foundByName = data.districts.find(d => d.name.toLowerCase() === normalized);
+  if (foundByName) return foundByName;
+
+  const numericId = parseInt(idOrName, 10);
+  if (!isNaN(numericId)) {
+    return data.districts.find(d => d.id === numericId);
+  }
+  return null;
+}
+
+// Helper to find a station by numeric ID or name (case-insensitive)
+function findStation(idOrName) {
+  if (!idOrName) return null;
+  const normalized = idOrName.trim().toLowerCase();
+  const foundByName = data.stations.find(s => s.name.toLowerCase() === normalized);
+  if (foundByName) return foundByName;
+
+  const numericId = parseInt(idOrName, 10);
+  if (!isNaN(numericId)) {
+    return data.stations.find(s => s.id === numericId);
+  }
+  return null;
+}
+
 // Root route returning status and session
 app.get('/', (req, res) => {
   res.json({
@@ -68,8 +110,7 @@ app.get('/provinces', (req, res) => {
 
 // GET /provinces/:id - Retrieve a specific province by id
 app.get('/provinces/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const province = data.provinces.find(p => p.id === id);
+  const province = findProvince(req.params.id);
   if (!province) {
     return res.status(404).json({ error: 'Province not found' });
   }
@@ -91,8 +132,7 @@ app.get('/districts', (req, res) => {
 
 // GET /districts/:id - Retrieve a specific district by id
 app.get('/districts/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const district = data.districts.find(d => d.id === id);
+  const district = findDistrict(req.params.id);
   if (!district) {
     return res.status(404).json({ error: 'District not found' });
   }
@@ -115,8 +155,7 @@ app.get('/stations', (req, res) => {
 
 // GET /stations/:id - Retrieve a specific station by id
 app.get('/stations/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const station = data.stations.find(s => s.id === id);
+  const station = findStation(req.params.id);
   if (!station) {
     return res.status(404).json({ error: 'Station not found' });
   }
