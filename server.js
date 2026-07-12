@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,15 +10,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // Load seed.json into memory at startup
-const seedPath = path.join(__dirname, 'seed.json');
-let data = { provinces: [], districts: [], stations: [], vehicles: [], pings: [] };
+const data = require('./seed.json');
 
-try {
-  const fileContent = fs.readFileSync(seedPath, 'utf8');
-  data = JSON.parse(fileContent);
-} catch (err) {
-  console.error('Error loading seed.json:', err);
-}
 
 // Root route returning status and session
 app.get('/', (req, res) => {
@@ -185,6 +179,80 @@ app.get('/vehicles/:id/last-position', (req, res) => {
     lng: lp.longitude,
     speed: lp.speed !== undefined ? lp.speed : 0
   });
+});
+
+// POST /vehicles/:vehicleId/pings - Create a new telemetry ping for a vehicle
+app.post('/vehicles/:vehicleId/pings', (req, res) => {
+  // 1. Require X-API-Key header. 401 if header is absent
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key is missing' });
+  }
+
+  // 2. Parse vehicleId
+  const vehicleId = req.params.vehicleId;
+  let numericId = null;
+  if (vehicleId.startsWith('v-')) {
+    numericId = parseInt(vehicleId.substring(2), 10);
+  } else {
+    numericId = parseInt(vehicleId, 10);
+  }
+
+  // 3. 404 if vehicleId not in vehicles array
+  const vehicle = data.vehicles.find(v => v.id === numericId);
+  if (!vehicle) {
+    return res.status(404).json({ error: 'Vehicle not found' });
+  }
+
+  // 4. Build deviceKeys = { "v-01": "key_v01", "v-02": "key_v02", ... }
+  // 403 if key does not match deviceKeys[vehicleId]
+  const deviceKeys = {};
+  data.vehicles.forEach(v => {
+    const formattedId = `v-${String(v.id).padStart(2, '0')}`;
+    const key = `key_v${String(v.id).padStart(2, '0')}`;
+    deviceKeys[formattedId] = key;
+    deviceKeys[String(v.id)] = key;
+  });
+
+  const expectedKey = deviceKeys[vehicleId];
+  if (apiKey !== expectedKey) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  // 5. 400 if body missing latitude, longitude, or speed
+  const { latitude, longitude, speed } = req.body;
+  if (latitude === undefined || latitude === null ||
+      longitude === undefined || longitude === null ||
+      speed === undefined || speed === null) {
+    return res.status(400).json({ error: 'Missing latitude, longitude, or speed' });
+  }
+
+  // 6. Server sets timestamp: new Date().toISOString()
+  const newPingId = data.pings.length > 0 ? Math.max(...data.pings.map(p => p.id)) + 1 : 1;
+  const newPing = {
+    id: newPingId,
+    vehicle_id: numericId,
+    latitude,
+    longitude,
+    speed,
+    timestamp: new Date().toISOString()
+  };
+
+  // 7. Push ping to array
+  data.pings.push(newPing);
+
+  // 8. Set Location header: /vehicles/:vehicleId/pings/:pingId
+  res.set('Location', `/vehicles/${vehicleId}/pings/${newPing.id}`);
+
+  // 9. Set ETag and Last-Modified headers
+  const lastModified = new Date(newPing.timestamp).toUTCString();
+  res.set('Last-Modified', lastModified);
+
+  const etag = '"' + crypto.createHash('md5').update(JSON.stringify(newPing)).digest('hex') + '"';
+  res.set('ETag', etag);
+
+  // 10. Return 201 Created
+  return res.status(201).json(newPing);
 });
 
 if (require.main === module) {
