@@ -177,9 +177,9 @@ app.get('/vehicles', (req, res) => {
   res.json(mapped);
 });
 
-// GET /vehicles/:id - Retrieve a specific vehicle by id (with last_ping composite)
-app.get('/vehicles/:id', (req, res) => {
-  const vehicle = findVehicle(req.params.id);
+// GET /vehicles/:vehicleId - Retrieve a specific vehicle by vehicleId (with last_ping composite)
+app.get('/vehicles/:vehicleId', (req, res) => {
+  const vehicle = findVehicle(req.params.vehicleId);
   if (!vehicle) {
     return res.status(404).json({ error: 'Vehicle not found' });
   }
