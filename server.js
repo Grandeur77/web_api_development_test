@@ -21,6 +21,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// Handle favicon requests to prevent 404 errors
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // GET /provinces - Retrieve all provinces
 app.get('/provinces', (req, res) => {
   const mapped = data.provinces.map(p => ({
