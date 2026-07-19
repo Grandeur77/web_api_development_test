@@ -205,7 +205,6 @@ app.get('/districts/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
 // GET /stations - Retrieve all stations
 app.get('/stations', async (req, res) => {
   try {
@@ -523,6 +522,127 @@ app.post('/vehicles/:vehicleId/pings', async (req, res) => {
     return res.status(201).json(responsePayload);
   } catch (err) {
     console.error('Error creating telemetry ping:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// PUT /stations/:id - Update a station
+app.put('/stations/:id', async (req, res) => {
+  try {
+    const station = await findStation(req.params.id, req.db);
+    if (!station) {
+      return res.status(404).json({ error: 'Station not found' });
+    }
+
+    const { name, district_id } = req.body;
+    const updateDoc = {};
+
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({ error: 'Name cannot be empty' });
+      }
+      const duplicate = await req.db.collection('stations').findOne({
+        id: { $ne: station.id },
+        name: { $regex: new RegExp(`^${escapeRegex(name.trim())}$`, 'i') }
+      });
+      if (duplicate) {
+        return res.status(409).json({ error: 'Station with this name already exists' });
+      }
+      updateDoc.name = name.trim();
+    }
+
+    if (district_id !== undefined && district_id !== null) {
+      const distIdInt = parseInt(district_id, 10);
+      const districtExists = await req.db.collection('districts').findOne({ id: distIdInt });
+      if (!districtExists) {
+        return res.status(400).json({ error: `District with id ${district_id} does not exist` });
+      }
+      updateDoc.district_id = distIdInt;
+    }
+
+    if (Object.keys(updateDoc).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    await req.db.collection('stations').updateOne({ id: station.id }, { $set: updateDoc });
+
+    res.json({
+      station_id: station.id,
+      name: updateDoc.name !== undefined ? updateDoc.name : station.name,
+      district_id: updateDoc.district_id !== undefined ? updateDoc.district_id : station.district_id
+    });
+  } catch (err) {
+    console.error('Error updating station:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// PUT /vehicles/:id - Update a vehicle
+app.put('/vehicles/:id', async (req, res) => {
+  try {
+    const vehicle = await findVehicle(req.params.id, req.db);
+    if (!vehicle) {
+      return res.status(404).json({ error: 'Vehicle not found' });
+    }
+
+    const { reg_number, register_number, device_id, station_id } = req.body;
+    const finalReg = register_number || reg_number;
+    const updateDoc = {};
+
+    if (finalReg !== undefined) {
+      if (!finalReg.trim()) {
+        return res.status(400).json({ error: 'Registration number cannot be empty' });
+      }
+      const duplicate = await req.db.collection('vehicles').findOne({
+        id: { $ne: vehicle.id },
+        $or: [
+          { register_number: finalReg.trim() },
+          { registration_number: finalReg.trim() }
+        ]
+      });
+      if (duplicate) {
+        return res.status(409).json({ error: 'Vehicle with this registration number already exists' });
+      }
+      updateDoc.register_number = finalReg.trim();
+    }
+
+    if (device_id !== undefined) {
+      if (!device_id.trim()) {
+        return res.status(400).json({ error: 'Device ID cannot be empty' });
+      }
+      const duplicate = await req.db.collection('vehicles').findOne({
+        id: { $ne: vehicle.id },
+        device_id: device_id.trim()
+      });
+      if (duplicate) {
+        return res.status(409).json({ error: 'Vehicle with this Device ID already exists' });
+      }
+      updateDoc.device_id = device_id.trim();
+    }
+
+    if (station_id !== undefined && station_id !== null) {
+      const stationIdInt = parseInt(station_id, 10);
+      const stationExists = await req.db.collection('stations').findOne({ id: stationIdInt });
+      if (!stationExists) {
+        return res.status(400).json({ error: `Station with id ${station_id} does not exist` });
+      }
+      updateDoc.station_id = stationIdInt;
+    }
+
+    if (Object.keys(updateDoc).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    await req.db.collection('vehicles').updateOne({ id: vehicle.id }, { $set: updateDoc });
+
+    res.json({
+      vehicle_id: vehicle.id,
+      reg_number: updateDoc.register_number !== undefined ? updateDoc.register_number : (vehicle.register_number || vehicle.registration_number),
+      device_id: updateDoc.device_id !== undefined ? updateDoc.device_id : vehicle.device_id,
+      station_id: updateDoc.station_id !== undefined ? updateDoc.station_id : vehicle.station_id
+    });
+  } catch (err) {
+    console.error('Error updating vehicle:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
