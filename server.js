@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const crypto = require('crypto');
 const { MongoClient } = require('mongodb');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,40 @@ app.use(async (req, res, next) => {
     console.error('Database connection error:', err);
     res.status(500).json({ error: 'Database connection failure' });
   }
+});
+
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey12345';
+
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Extract token from "Bearer <token>"
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token is missing' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// POST /login - Authenticate user and issue JWT token
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  // Simple mock credential check (extendable to a DB query)
+  if (username === 'admin' && password === 'adminpassword') {
+    const user = { username: 'admin', role: 'administrator' };
+    const accessToken = jwt.sign(user, JWT_SECRET, { expiresIn: '1h' });
+    return res.json({ token: accessToken });
+  }
+
+  return res.status(401).json({ error: 'Invalid username or password' });
 });
 
 // Helper to escape regex special characters
@@ -240,7 +275,7 @@ app.get('/stations/:id', async (req, res) => {
 });
 
 // POST /stations - Create a new station
-app.post('/stations', async (req, res) => {
+app.post('/stations', authenticateToken, async (req, res) => {
   try {
     const { name, district_id } = req.body;
     if (!name || district_id === undefined || district_id === null) {
@@ -300,7 +335,7 @@ app.get('/vehicles', async (req, res) => {
 });
 
 // POST /vehicles - Add a new vehicle
-app.post('/vehicles', async (req, res) => {
+app.post('/vehicles', authenticateToken, async (req, res) => {
   try {
     const { reg_number, register_number, device_id, station_id } = req.body;
     const finalRegNumber = register_number || reg_number;
@@ -527,7 +562,7 @@ app.post('/vehicles/:vehicleId/pings', async (req, res) => {
 });
 
 // PUT /stations/:id - Update a station
-app.put('/stations/:id', async (req, res) => {
+app.put('/stations/:id', authenticateToken, async (req, res) => {
   try {
     const station = await findStation(req.params.id, req.db);
     if (!station) {
@@ -578,7 +613,7 @@ app.put('/stations/:id', async (req, res) => {
 });
 
 // PUT /vehicles/:id - Update a vehicle
-app.put('/vehicles/:id', async (req, res) => {
+app.put('/vehicles/:id', authenticateToken, async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id, req.db);
     if (!vehicle) {
