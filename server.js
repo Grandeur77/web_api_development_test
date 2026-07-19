@@ -240,6 +240,49 @@ app.get('/stations/:id', async (req, res) => {
   }
 });
 
+// POST /stations - Create a new station
+app.post('/stations', async (req, res) => {
+  try {
+    const { name, district_id } = req.body;
+    if (!name || district_id === undefined || district_id === null) {
+      return res.status(400).json({ error: 'Missing name or district_id' });
+    }
+
+    const distIdInt = parseInt(district_id, 10);
+    const district = await req.db.collection('districts').findOne({ id: distIdInt });
+    if (!district) {
+      return res.status(400).json({ error: `District with id ${district_id} does not exist` });
+    }
+
+    const duplicate = await req.db.collection('stations').findOne({
+      name: { $regex: new RegExp(`^${escapeRegex(name.trim())}$`, 'i') }
+    });
+    if (duplicate) {
+      return res.status(409).json({ error: 'Station with this name already exists' });
+    }
+
+    const max = await req.db.collection('stations').findOne({}, { sort: { id: -1 } });
+    const newId = max ? max.id + 1 : 1;
+
+    const newStation = {
+      id: newId,
+      name: name.trim(),
+      district_id: distIdInt
+    };
+
+    await req.db.collection('stations').insertOne(newStation);
+
+    res.status(201).json({
+      station_id: newId,
+      name: name.trim(),
+      district_id: distIdInt
+    });
+  } catch (err) {
+    console.error('Error creating station:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // GET /vehicles - Retrieve all vehicles
 app.get('/vehicles', async (req, res) => {
   try {
@@ -253,6 +296,60 @@ app.get('/vehicles', async (req, res) => {
     res.json(mapped);
   } catch (err) {
     console.error('Error fetching vehicles:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// POST /vehicles - Add a new vehicle
+app.post('/vehicles', async (req, res) => {
+  try {
+    const { reg_number, register_number, device_id, station_id } = req.body;
+    const finalRegNumber = register_number || reg_number;
+
+    if (!finalRegNumber || !device_id || station_id === undefined || station_id === null) {
+      return res.status(400).json({ error: 'Missing register_number, device_id, or station_id' });
+    }
+
+    // Verify station exists in stations collection
+    const station = await req.db.collection('stations').findOne({ id: parseInt(station_id, 10) });
+    if (!station) {
+      return res.status(400).json({ error: `Station with id ${station_id} does not exist` });
+    }
+
+    // Check if vehicle with same register_number or device_id already exists
+    const duplicate = await req.db.collection('vehicles').findOne({
+      $or: [
+        { register_number: finalRegNumber },
+        { registration_number: finalRegNumber },
+        { device_id: device_id }
+      ]
+    });
+
+    if (duplicate) {
+      return res.status(409).json({ error: 'Vehicle with this register_number or device_id already exists' });
+    }
+
+    // Determine the next vehicle ID
+    const maxVehicle = await req.db.collection('vehicles').findOne({}, { sort: { id: -1 } });
+    const newVehicleId = maxVehicle ? maxVehicle.id + 1 : 1;
+
+    const newVehicle = {
+      id: newVehicleId,
+      register_number: finalRegNumber,
+      device_id: device_id,
+      station_id: parseInt(station_id, 10)
+    };
+
+    await req.db.collection('vehicles').insertOne(newVehicle);
+
+    res.status(201).json({
+      vehicle_id: newVehicleId,
+      reg_number: finalRegNumber,
+      device_id: device_id,
+      station_id: parseInt(station_id, 10)
+    });
+  } catch (err) {
+    console.error('Error creating vehicle:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -381,8 +478,8 @@ app.post('/vehicles/:vehicleId/pings', async (req, res) => {
     // 5. 400 if body missing lat, lng, or speed
     const { lat, lng, speed } = req.body;
     if (lat === undefined || lat === null ||
-        lng === undefined || lng === null ||
-        speed === undefined || speed === null) {
+      lng === undefined || lng === null ||
+      speed === undefined || speed === null) {
       return res.status(400).json({ error: 'Missing lat, lng, or speed' });
     }
 
