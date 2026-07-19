@@ -10,17 +10,15 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // MongoDB connection management (designed for serverless reuse)
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  console.error('Error: MONGODB_URI is not defined in the environment variables.');
-  process.exit(1);
-}
-
 let client = null;
 let db = null;
 
 async function getDb() {
   if (db) return db;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI is not defined in the environment variables.');
+  }
   if (!client) {
     client = new MongoClient(uri);
     await client.connect();
